@@ -1,0 +1,52 @@
+# MQTT Broker Configuration
+mqtt:
+  host: "rabbitmq"  # Service name from Docker Compose
+  port: 1883
+  username: "admin"
+  password: "password"
+
+# Web Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+# Sensor Topics Configuration
+# gauge: dial display for numeric values
+sensors:
+  - topic: "home/living_room/temperature"
+    type: temperature
+    name: "Living Room Temperature"
+    implementation: gauge  # arc dial display for numeric values
+    min: 0
+    max: 40
+    history: 100
+
+  - topic: "home/living_room/humidity"
+    type: humidity
+    name: "Living Room Humidity"
+    implementation: gauge  # Circular dial display for numeric values
+    min: 0
+    max: 100
+    history: 100
+
+  - topic: "home/bedroom/temperature"
+    type: temperature
+    name: "Bedroom Temperature"
+    implementation: graph
+    history: 50
+    unit: "°F"
+
+  - topic: "home/front_door/motion"
+    type: motion
+    name: "Front Door Motion"
+    implementation: text  # Simple text-based display for event data
+    history: 10
+
+  - topic: "home/garage/door"
+    type: door
+    name: "Garage Door"
+    implementation: boolean
+    history: 10
+    "true": "open"
+    "false": "closed"
+

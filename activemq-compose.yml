@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"     # AMQP port
+      - "15672:15672"   # Management UI port
+      - "1883:1883"     # MQTT port
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    command: >
+      bash -c "rabbitmq-plugins enable rabbitmq_mqtt rabbitmq_management &&
+               exec rabbitmq-server"
+    restart: unless-stopped
+    networks:
+      - rabbitmq_network
+
+volumes:
+  rabbitmq_data:
+
+networks:
+  rabbitmq_network:
+    driver: bridge

@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HA Broker Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #eee;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            color: #00d4ff;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        .status.connected {
+            background: #00c853;
+            color: #fff;
+        }
+
+        .status.disconnected {
+            background: #ff5252;
+            color: #fff;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .sensor-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sensor-card h3 {
+            font-size: 1rem;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .sensor-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .sensor-type {
+            font-size: 1rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .gauge-container {
+            position: relative;
+            width: 150px;
+            height: 90px;
+            margin: 20px auto;
+        }
+
+        .gauge-value {
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-top: 5px;
+        }
+
+        .graph-container {
+            width: 100%;
+            height: 150px;
+            margin-top: 15px;
+            margin-bottom: 30px;
+        }
+
+        .graph-container canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .graph-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            padding: 0 5px;
+        }
+
+        .graph-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .graph-label.high {
+            color: #ff6b6b;
+        }
+
+        .graph-label.low {
+            color: #4ecdc4;
+        }
+
+        .text-value {
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            margin-top: 10px;
+            font-family: monospace;
+        }
+
+        .last-updated {
+            font-size: 1rem;
+            color: #555;
+            margin-top: 10px;
+        }
+
+        .boolean-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .boolean-indicator {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+
+        .boolean-indicator.true-state {
+            background: linear-gradient(135deg, #00c853, #00e676);
+            box-shadow: 0 0 20px rgba(0, 200, 83, 0.5);
+            color: #fff;
+        }
+
+        .boolean-indicator.false-state {
+            background: linear-gradient(135deg, #ff5252, #ff1744);
+            box-shadow: 0 0 20px rgba(255, 82, 82, 0.5);
+            color: #fff;
+        }
+
+        .boolean-label {
+            margin-top: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #eee;
+        }
+
+        .boolean-switched {
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏠 Home Assistant Dashboard</h1>
+        <div id="connection-status" class="status disconnected">Disconnected</div>
+    </div>
+
+    <div id="dashboard" class="dashboard">
+    </div>
+
+    <script>
+        const dashboard = document.getElementById('dashboard');
+        const statusEl = document.getElementById('connection-status');
+        const sensors = {};
+        let ws;
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            console.log('DEBUG: Attempting to connect to WebSocket:', wsUrl);
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('DEBUG: WebSocket connected successfully');
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'status connected';
+            };
+
+            ws.onclose = (event) => {
+                console.log('DEBUG: WebSocket closed, code:', event.code, 'reason:', event.reason);
+                statusEl.textContent = 'Disconnected';
+                statusEl.className = 'status disconnected';
+                setTimeout(connect, 3000);
+            };
+
+            ws.onerror = (err) => {
+                console.error('DEBUG: WebSocket error:', err);
+                ws.close();
+            };
+
+            ws.onmessage = (event) => {
+                console.log('DEBUG: Received message:', event.data);
+                const message = JSON.parse(event.data);
+                handleMessage(message);
+            };
+        }
+
+        function handleMessage(message) {
+            console.log('DEBUG: Handling message type:', message.type);
+            if (message.type === 'init') {
+                console.log('DEBUG: Init message with', Object.keys(message.data).length, 'sensors');
+                // Initialize widgets for all configured sensors
+                for (const [topic, data] of Object.entries(message.data)) {
+                    createOrUpdateSensor(topic, data);
+                }
+            } else if (message.type === 'update') {
+                console.log('DEBUG: Update message for topic:', message.topic);
+                // Only update existing widgets
+                createOrUpdateSensor(message.topic, message.data);
+            }
+        }
+
+        // Helper function to create a safe ID from topic
+        function topicToId(topic) {
+            return 'sensor-' + topic.replace(/[^a-zA-Z0-9]/g, '_');
+        }
+
+        function createOrUpdateSensor(topic, data) {
+            console.log('DEBUG: Creating/updating sensor:', topic, 'implementation:', data.implementation);
+            sensors[topic] = data;
+
+            const cardId = topicToId(topic);
+            let card = document.getElementById(cardId);
+            if (!card) {
+                card = document.createElement('div');
+                card.id = cardId;
+                card.className = 'sensor-card';
+                dashboard.appendChild(card);
+            }
+
+            const lastUpdated = data.last_updated
+                ? new Date(data.last_updated).toLocaleTimeString()
+                : 'Never';
+
+            let visualizationHtml = '';
+
+            switch (data.implementation) {
+                case 'gauge':
+                    visualizationHtml = createGaugeHtml(data);
+                    break;
+                case 'graph':
+                    visualizationHtml = createGraphHtml(cardId, data);
+                    break;
+                case 'boolean':
+                    visualizationHtml = createBooleanHtml(data);
+                    break;
+                case 'text':
+                default:
+                    visualizationHtml = createTextHtml(data);
+                    break;
+            }
+
+            card.innerHTML = `
+                <h3>${data.name}</h3>
+                ${visualizationHtml}
+                <div class="sensor-type">${data.type}</div>
+                <div class="last-updated">Last updated: ${lastUpdated}</div>
+            `;
+
+            if (data.implementation === 'graph') {
+                drawGraph(cardId, data);
+            }
+        }
+
+        function createGaugeHtml(data) {
+            const value = data.current_value ?? 0;
+            const unit = getUnit(data);
+            const min = data.min_value ?? 0;
+            const max = data.max_value ?? 100;
+
+            // Clamp percentage between 0 and 100 so needle stays within arc
+            const percentage = Math.min(Math.max((value - min) / (max - min) * 100, 0), 100);
+            // Convert to radians: 0% = PI (left), 100% = 0 (right)
+            const angleRad = Math.PI * (1 - percentage / 100);
+
+            // Arc endpoints
+            const arcStartX = 75 - 60; // 15 (left end at 180°)
+            const arcEndX = 75 + 60;   // 135 (right end at 0°)
+            const arcY = 60;
+
+            // Calculate value arc endpoint
+            const valueArcX = 75 + 60 * Math.cos(angleRad);
+            const valueArcY = 60 - 60 * Math.sin(angleRad);
+
+            // Calculate needle endpoint
+            const needleX = 75 + 45 * Math.cos(angleRad);
+            const needleY = 60 - 45 * Math.sin(angleRad);
+
+            return `
+                <div class="gauge-container">
+                    <svg width="150" height="90" viewBox="0 0 150 75">
+                        <!-- background arc -->
+                        <path d="M ${arcStartX} ${arcY} A 60 60 0 0 1 ${arcEndX} ${arcY}"
+                              stroke="#2a2a2a" stroke-width="8" fill="none"/>
+
+                        <!-- value arc -->
+                        <path d="M ${arcStartX} ${arcY} A 60 60 0 0 1 ${valueArcX} ${valueArcY}"
+                              stroke="#00d4ff" stroke-width="6" fill="none"/>
+
+                        <!-- min label -->
+                        <text x="${arcStartX}" y="70" fill="#888" text-anchor="middle" font-size="10">${min}</text>
+
+                        <!-- max label -->
+                        <text x="${arcEndX}" y="70" fill="#888" text-anchor="middle" font-size="10">${max}</text>
+
+                        <!-- needle -->
+                        <line x1="75" y1="60" x2="${needleX}" y2="${needleY}"
+                              stroke="#fff" stroke-width="2"/>
+
+                        <!-- center dot -->
+                        <circle cx="75" cy="60" r="3" fill="#fff"/>
+                    </svg>
+                    <div class="gauge-value">${value}${unit}</div>
+                </div>
+            `;
+        }
+
+        function createTextHtml(data) {
+            const value = data.current_value ?? 'No data';
+            return `<div class="text-value">${value}</div>`;
+        }
+
+        function createBooleanHtml(data) {
+            const trueValue = data.true_value ?? 'true';
+            const falseValue = data.false_value ?? 'false';
+            const rawValue = String(data.current_value ?? '').toLowerCase();
+            const isTrue = rawValue === trueValue.toLowerCase();
+            const displayLabel = isTrue ? trueValue : falseValue;
+            const stateClass = isTrue ? 'true-state' : 'false-state';
+
+            let switchedHtml = '';
+            if (data.last_switched) {
+                const switchedTime = new Date(data.last_switched).toLocaleString();
+                switchedHtml = `<div class="boolean-switched">Last switched: ${switchedTime}</div>`;
+            }
+
+            return `
+                <div class="boolean-container">
+                    <div class="boolean-indicator ${stateClass}">
+                        ${isTrue ? '✓' : '✗'}
+                    </div>
+                    <div class="boolean-label">${displayLabel}</div>
+                    ${switchedHtml}
+                </div>
+            `;
+        }
+
+        function createGraphHtml(cardId, data) {
+            const value = data.current_value ?? '--';
+            const unit = getUnit(data);
+            const values = (data.history || []).map(h => parseFloat(h.value) || 0);
+            const min = values.length > 0 ? Math.min(...values).toFixed(1) : '--';
+            const max = values.length > 0 ? Math.max(...values).toFixed(1) : '--';
+            return `
+                <div class="sensor-value">${value}${unit}</div>
+                <div class="graph-container">
+                    <canvas id="graph-${cardId}"></canvas>
+                    <div class="graph-labels">
+                        <span class="graph-label high">▲ High: ${max}${unit}</span>
+                        <span class="graph-label low">▼ Low: ${min}${unit}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function drawGraph(cardId, data) {
+            const canvas = document.getElementById(`graph-${cardId}`);
+            if (!canvas || !data.history || data.history.length === 0) return;
+
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * 2;
+            canvas.height = rect.height * 2;
+            ctx.scale(2, 2);
+
+            const width = rect.width;
+            const height = rect.height;
+            const padding = 30;
+            const rightPadding = 10;
+
+            const values = data.history.map(h => parseFloat(h.value) || 0);
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min || 1;
+
+            const unit = getUnit(data);
+            const gridLines = 5;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw horizontal grid lines with labels
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#888';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'right';
+
+            for (let i = 0; i <= gridLines; i++) {
+                const y = padding + (i / gridLines) * (height - 2 * padding);
+                const value = max - (i / gridLines) * range;
+
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width - rightPadding, y);
+                ctx.stroke();
+
+                ctx.fillText(`${value.toFixed(1)}${unit}`, padding - 3, y + 3);
+            }
+
+            // Draw the data line
+            ctx.strokeStyle = '#00d4ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            values.forEach((value, i) => {
+                const x = padding + (i / (values.length - 1 || 1)) * (width - padding - rightPadding);
+                const y = height - padding - ((value - min) / range) * (height - 2 * padding);
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            ctx.stroke();
+        }
+
+        function getUnit(data) {
+            // Use custom unit if provided, otherwise fall back to type-based defaults
+            if (data.unit) {
+                return data.unit;
+            }
+            const units = {
+                temperature: '°C',
+                humidity: '%',
+                pressure: 'hPa',
+                motion: '',
+                battery: '%',
+            };
+            return units[data.type] || '';
+        }
+
+        connect();
+    </script>
+</body>
+</html>
+

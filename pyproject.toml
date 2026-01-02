@@ -1,0 +1,15 @@
+[project]
+name = "ha-broker-dashboard"
+version = "0.1.0"
+description = "Home Assistant MQTT Monitoring Dashboard"
+requires-python = ">=3.14"
+dependencies = [
+    "paho-mqtt>=2.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "websockets>=13.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+ha-dashboard = "ha_broker_dashboard.main:main"
