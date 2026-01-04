@@ -308,46 +308,35 @@
             const min = data.min_value ?? 0;
             const max = data.max_value ?? 100;
 
-            // Clamp percentage between 0 and 100 so needle stays within arc
             const percentage = Math.min(Math.max((value - min) / (max - min) * 100, 0), 100);
-            // Convert to radians: 0% = PI (left), 100% = 0 (right)
             const angleRad = Math.PI * (1 - percentage / 100);
 
-            // Arc endpoints
             const arcStartX = 75 - 60; // 15 (left end at 180°)
             const arcEndX = 75 + 60;   // 135 (right end at 0°)
             const arcY = 60;
 
-            // Calculate value arc endpoint
             const valueArcX = 75 + 60 * Math.cos(angleRad);
             const valueArcY = 60 - 60 * Math.sin(angleRad);
 
-            // Calculate needle endpoint
             const needleX = 75 + 45 * Math.cos(angleRad);
             const needleY = 60 - 45 * Math.sin(angleRad);
 
             return `
                 <div class="gauge-container">
                     <svg width="150" height="90" viewBox="0 0 150 75">
-                        <!-- background arc -->
                         <path d="M ${arcStartX} ${arcY} A 60 60 0 0 1 ${arcEndX} ${arcY}"
                               stroke="#2a2a2a" stroke-width="8" fill="none"/>
 
-                        <!-- value arc -->
                         <path d="M ${arcStartX} ${arcY} A 60 60 0 0 1 ${valueArcX} ${valueArcY}"
                               stroke="#00d4ff" stroke-width="6" fill="none"/>
 
-                        <!-- min label -->
                         <text x="${arcStartX}" y="70" fill="#888" text-anchor="middle" font-size="10">${min}</text>
 
-                        <!-- max label -->
                         <text x="${arcEndX}" y="70" fill="#888" text-anchor="middle" font-size="10">${max}</text>
 
-                        <!-- needle -->
                         <line x1="75" y1="60" x2="${needleX}" y2="${needleY}"
                               stroke="#fff" stroke-width="2"/>
 
-                        <!-- center dot -->
                         <circle cx="75" cy="60" r="3" fill="#fff"/>
                     </svg>
                     <div class="gauge-value">${value}${unit}</div>

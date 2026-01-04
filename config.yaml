@@ -34,7 +34,9 @@ sensors:
     name: "Bedroom Temperature"
     implementation: graph
     history: 50
+    inputUnit: "°C"
     unit: "°F"
+    precision: 0.01
 
   - topic: "home/front_door/motion"
     type: motion

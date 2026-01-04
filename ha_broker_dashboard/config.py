@@ -31,6 +31,8 @@ class SensorConfig:
     true: str | None = None
     false: str | None = None
     unit: str | None = None
+    inputUnit: str | None = None
+    precision: float | None = None
 
 
 @dataclass

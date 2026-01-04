@@ -58,6 +58,8 @@ class Dashboard:
                 true_value=getattr(sensor, 'true', None),
                 false_value=getattr(sensor, 'false', None),
                 unit=sensor.unit,
+                input_unit=sensor.inputUnit,
+                precision=sensor.precision,
             )
             logger.info(f"Registered sensor: {sensor.name} ({sensor.topic})")
 

@@ -1,7 +1,6 @@
 import random
 import time
-from test_runner import TestRunner
-
+from test.remote.test_runner import TestRunner
 
 def test_garage_door():
     runner = TestRunner(

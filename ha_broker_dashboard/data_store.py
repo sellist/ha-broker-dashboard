@@ -4,6 +4,8 @@ from datetime import datetime
 from threading import Lock
 from typing import Any
 
+from .conversions import convert_value, truncate_to_precision
+
 
 @dataclass
 class SensorData:
@@ -20,6 +22,8 @@ class SensorData:
     false_value: str | None = None
     last_switched: datetime | None = None
     unit: str | None = None
+    input_unit: str | None = None
+    precision: float | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -36,6 +40,8 @@ class SensorData:
             "false_value": self.false_value,
             "last_switched": self.last_switched.isoformat() if self.last_switched else None,
             "unit": self.unit,
+            "input_unit": self.input_unit,
+            "precision": self.precision,
         }
 
 
@@ -56,6 +62,8 @@ class DataStore:
         true_value: str | None = None,
         false_value: str | None = None,
         unit: str | None = None,
+        input_unit: str | None = None,
+        precision: float | None = None,
     ) -> None:
         with self._lock:
             if topic in self._sensors:
@@ -71,6 +79,8 @@ class DataStore:
                 true_value=true_value,
                 false_value=false_value,
                 unit=unit,
+                input_unit=input_unit,
+                precision=precision,
             )
 
     def update_sensor(self, topic: str, value: Any) -> SensorData | None:
@@ -79,14 +89,31 @@ class DataStore:
                 return None
             sensor = self._sensors[topic]
             old_value = sensor.current_value
-            sensor.current_value = value
+
+            # apply unit conversion if input_unit and unit differ
+            converted_value = value
+            if sensor.input_unit and sensor.unit and sensor.input_unit != sensor.unit:
+                try:
+                    numeric_value = float(value)
+                    converted_value = convert_value(numeric_value, sensor.input_unit, sensor.unit)
+                except (ValueError, TypeError):
+                    pass
+
+            if sensor.precision is not None:
+                try:
+                    numeric_value = float(converted_value)
+                    converted_value = truncate_to_precision(numeric_value, sensor.precision)
+                except (ValueError, TypeError):
+                    pass
+
+            sensor.current_value = converted_value
             sensor.last_updated = datetime.now()
             if sensor.implementation == "graph":
                 sensor.history.append(
-                    {"value": value, "timestamp": sensor.last_updated.isoformat()}
+                    {"value": converted_value, "timestamp": sensor.last_updated.isoformat()}
                 )
             elif sensor.implementation == "boolean":
-                if old_value != value:
+                if old_value != converted_value:
                     sensor.last_switched = sensor.last_updated
             return sensor
 
