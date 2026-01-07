@@ -13,21 +13,38 @@ server:
 # Sensor Topics Configuration
 # gauge: dial display for numeric values
 sensors:
+#  - topic: "home/living_room/temperature"
+#    type: temperature
+#    name: "Living Room Temperature"
+#    implementation: gauge  # arc dial display for numeric values
+#    min: 0
+#    max: 40
+#    history: 100
+#    inputUnit: "C"
+#    unit: "F"
   - topic: "home/living_room/temperature"
     type: temperature
     name: "Living Room Temperature"
-    implementation: gauge  # arc dial display for numeric values
-    min: 0
-    max: 40
-    history: 100
+    implementation: graph
+    history: 120
+    inputUnit: "C"
+    unit: "F"
+    precision: 0.01
 
   - topic: "home/living_room/humidity"
     type: humidity
     name: "Living Room Humidity"
-    implementation: gauge  # Circular dial display for numeric values
-    min: 0
-    max: 100
-    history: 100
+    implementation: graph
+    history: 120
+    precision: 0.01
+
+#  - topic: "home/living_room/humidity"
+#    type: humidity
+#    name: "Living Room Humidity"
+#    implementation: gauge  # Circular dial display for numeric values
+#    min: 0
+#    max: 100
+#    history: 100
 
   - topic: "home/bedroom/temperature"
     type: temperature
